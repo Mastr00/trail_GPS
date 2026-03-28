@@ -152,10 +152,10 @@ void drawPageMenu() {
   tft.fillRect(0, 0, SCREEN_W, 44, COL_HEADER);
   tft.drawFastHLine(0, 44, SCREEN_W, COL_ACCENT);
 
-  // Logo GARMINE avec accent
+  // Logo TrailNav avec accent
   tft.setTextColor(COL_ACCENT, COL_HEADER);
   tft.setTextSize(3);
-  tft.drawString("GAMINE", 30, 10);
+  tft.drawString("TrailNav", 20, 10);
 
   // Icônes menu
   const char* items[]  = { " GPS",  " SENSORS", " IMU",     " COMPASS", " MAP" };
@@ -700,7 +700,7 @@ void setup() {
   tft.drawFastHLine(0, 60, SCREEN_W, COL_ACCENT);
   tft.setTextColor(COL_ACCENT, COL_HEADER);
   tft.setTextSize(4);
-  tft.drawString("GAMINE", 28, 14);
+  tft.drawString("TrailNav", 20, 14);
 
   tft.setTextSize(2);
   tft.setTextColor(COL_LABEL, COL_BG);
