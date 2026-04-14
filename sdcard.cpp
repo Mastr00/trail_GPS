@@ -12,13 +12,20 @@ static SPIClass spi_sd(HSPI);
 static bool _sdOK = false;
 
 bool initSD() {
+  // Terminer proprement toute session SD précédente (indispensable pour la ré-init)
+  SD.end();
+  spi_sd.end();
+  delay(50);
+
   // Forcer CS haut avant tout (stabilité du bus)
   pinMode(SD_CS, OUTPUT);
   digitalWrite(SD_CS, HIGH);
   delay(100);
 
-  // Initialiser le bus SPI2 avec les pins dédiés SD
-  spi_sd.begin(SD_CLK, SD_MISO, SD_MOSI, SD_CS);
+  // Initialiser le bus SPI2 avec les pins dédiés SD.
+  // On passe -1 pour le SS : désactive le SS hardware afin que seule
+  // la librairie SD gère le CS (évite le double contrôle du même pin).
+  spi_sd.begin(SD_CLK, SD_MISO, SD_MOSI, -1);
   delay(100);
   Serial.println("[SD] Init SPI2 : SCK=13 MISO=47 MOSI=12 CS=5");
 
@@ -55,5 +62,11 @@ bool initSD() {
 
 bool sdOK() {
   return _sdOK;
+}
+
+// Signale que la carte SD est inaccessible (ex. : SD.open() a échoué)
+// Permet à la boucle principale de déclencher une ré-initialisation.
+void sdInvalidate() {
+  _sdOK = false;
 }
 

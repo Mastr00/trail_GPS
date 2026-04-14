@@ -16,4 +16,8 @@ bool initSD();
 // Retourne true si la SD est disponible
 bool sdOK();
 
+// Invalide l'état SD (force ré-init au prochain cycle de reconnexion)
+// À appeler quand une opération de fichier échoue de manière inattendue.
+void sdInvalidate();
+
 #endif
