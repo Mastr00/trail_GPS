@@ -116,11 +116,10 @@ static bool loadTileBMP(int zoom, int tx, int ty) {
 
   File f = SD.open(path, FILE_READ);
   if (!f) {
-    // Si la carte SD a eu un faux contact, on tente un redémarrage doux
-    if (initSD()) {
-      f = SD.open(path, FILE_READ);
-    }
-    if (!f) return false;
+    // Signaler la défaillance SD pour que loop() déclenche la ré-init
+    // au prochain cycle (évite un reinit SPI en plein milieu du rendu).
+    sdInvalidate();
+    return false;
   }
 
   // Lire l'en-tête BMP (54 bytes standard)
@@ -136,11 +135,13 @@ static bool loadTileBMP(int zoom, int tx, int ty) {
   // Dimensions
   int32_t imgW = header[18] | (header[19] << 8) | (header[20] << 16) | (header[21] << 24);
   int32_t imgH = header[22] | (header[23] << 8) | (header[24] << 16) | (header[25] << 24);
-  uint16_t bpp = header[28] | (header[29] << 8);
+  uint16_t bpp  = header[28] | (header[29] << 8);
+  // Compression : 0=BI_RGB, 3=BI_BITFIELDS (seuls les deux sont acceptés en 16-bit)
+  uint32_t comp = header[30] | (header[31] << 8) | (header[32] << 16) | (header[33] << 24);
 
-  if (bpp != 16 || imgW != TILE_SIZE || abs(imgH) != TILE_SIZE) {
+  if (bpp != 16 || imgW != TILE_SIZE || abs(imgH) != TILE_SIZE || (comp != 0 && comp != 3)) {
     f.close();
-    return false;  // format non supporté
+    return false;  // format non supporté (BMP 16-bit RGB565 uniquement)
   }
 
   // Aller à l'offset données
