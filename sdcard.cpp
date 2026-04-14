@@ -5,14 +5,28 @@
 #include "sdcard.h"
 
 // ─────────────────────────────────────────────────────────────
-// SPI3 (HSPI) dédié pour la carte SD
+// Bus SPI dédié pour la carte SD
 // SCK=13, MISO=47, MOSI=12, CS=5
+//
+// Sur ESP32-S3, les bus utilisateur sont indexés 0 et 1 :
+//   0 → SPI2 (FSPI, utilisé par TFT_eSPI)
+//   1 → SPI3 (second bus libre)
+// La macro HSPI vaut 2 dans certaines versions du core Arduino,
+// ce qui est hors limites et fait échouer begin() silencieusement.
+// On utilise donc le numéro de bus explicite.
 // ─────────────────────────────────────────────────────────────
-static SPIClass spi_sd(HSPI);
+#if CONFIG_IDF_TARGET_ESP32S3
+  #define SD_SPI_BUS 1   // SPI3 sur ESP32-S3 (0-indexed)
+#else
+  #define SD_SPI_BUS HSPI // Original ESP32
+#endif
+
+static SPIClass spi_sd(SD_SPI_BUS);
 static bool _sdOK = false;
 
 bool initSD() {
   Serial.println("[SD] --- initSD() ---");
+  Serial.printf("[SD] SD_SPI_BUS=%d (HSPI=%d)\n", SD_SPI_BUS, HSPI);
 
   // Terminer proprement toute session SD précédente (indispensable pour la ré-init)
   SD.end();
@@ -24,22 +38,21 @@ bool initSD() {
   digitalWrite(SD_CS, HIGH);
   delay(100);
 
-  // Envoyer 80 impulsions d'horloge avec CS haut pour réveiller la carte
-  // (protocole SD : nécessaire avant le premier CMD0)
+  // Initialiser le bus SPI avec les pins dédiés SD
   spi_sd.begin(SD_CLK, SD_MISO, SD_MOSI, -1);
 
-  // 80 coups d'horloge à basse vitesse, CS haut
+  // Envoyer 80 impulsions d'horloge avec CS haut pour réveiller la carte
+  // (protocole SD : nécessaire avant le premier CMD0)
   spi_sd.beginTransaction(SPISettings(400000, MSBFIRST, SPI_MODE0));
   digitalWrite(SD_CS, HIGH);
-  for (int i = 0; i < 10; i++) spi_sd.transfer(0xFF);  // 10 × 8 bits = 80 clocks
+  for (int i = 0; i < 10; i++) spi_sd.transfer(0xFF);
   spi_sd.endTransaction();
   delay(50);
 
-  Serial.printf("[SD] Bus HSPI pret : SCK=%d MISO=%d MOSI=%d CS=%d\n",
+  Serial.printf("[SD] Bus SPI3 pret : SCK=%d MISO=%d MOSI=%d CS=%d\n",
                 SD_CLK, SD_MISO, SD_MOSI, SD_CS);
 
-  // Montage à 4 MHz — plus robuste que 10 MHz (certains modules SD ou câbles longs
-  // ne supportent pas 10 MHz de manière fiable, surtout lors de l'init)
+  // Montage à 4 MHz — plus robuste que 10 MHz sur câbles longs ou modules SD bas de gamme
   Serial.println("[SD] Tentative SD.begin() @ 4 MHz...");
   if (!SD.begin(SD_CS, spi_sd, 4000000)) {
     Serial.println("[SD] ECHEC @ 4 MHz — SD.begin() a retourne false");
@@ -74,8 +87,6 @@ bool initSD() {
   uint64_t sz = SD.cardSize() / (1024ULL * 1024ULL);
   Serial.printf("[SD] Taille: %llu MB\n", sz);
 
-  // Monter à 10 MHz maintenant que la carte est initialisée
-  // (certaines cartes acceptent 10 MHz en exploitation, mais pas à l'init)
   _sdOK = true;
   return true;
 }
